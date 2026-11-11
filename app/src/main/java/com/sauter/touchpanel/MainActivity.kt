@@ -7,7 +7,6 @@ import android.net.http.SslError
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.webkit.*
@@ -28,7 +27,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var errorLayout: LinearLayout
     private lateinit var errorDetailText: TextView
     private lateinit var btnRetry: Button
-    private lateinit var secretAdminButton: View
+    private lateinit var btnQuickSettings: Button
 
     private lateinit var prefs: AppPreferences
     private val handler = Handler(Looper.getMainLooper())
@@ -50,7 +49,6 @@ class MainActivity : AppCompatActivity() {
 
         initViews()
         setupWebView()
-        setupSecretAdminHotspot()
 
         // Bắt đầu nạp trang web Vision Center
         startLoading()
@@ -77,13 +75,18 @@ class MainActivity : AppCompatActivity() {
         errorLayout = findViewById(R.id.errorLayout)
         errorDetailText = findViewById(R.id.errorDetailText)
         btnRetry = findViewById(R.id.btnRetry)
-        secretAdminButton = findViewById(R.id.secretAdminButton)
+        btnQuickSettings = findViewById(R.id.btnQuickSettings)
 
         btnRetry.setOnClickListener {
             errorLayout.visibility = View.GONE
             loadingOverlay.visibility = View.VISIBLE
             statusText.text = getString(R.string.connecting)
             startLoading()
+        }
+
+        // Bấm nút bánh răng ⚙ góc trên bên phải để mở cài đặt cấu hình ngay lập tức
+        btnQuickSettings.setOnClickListener {
+            showAdminSettingsDialog()
         }
     }
 
@@ -112,10 +115,8 @@ class MainActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
-                // Nếu đang điều hướng tới trang login, chuẩn bị sẵn sàng inject
                 if (url?.contains("Account/Login", ignoreCase = true) == true) {
                     isLoginInjected = false
-                    loadingOverlay.visibility = View.VISIBLE
                     statusText.text = getString(R.string.authenticating)
                 }
             }
@@ -133,6 +134,12 @@ class MainActivity : AppCompatActivity() {
                         statusText.text = getString(R.string.authenticating)
                         injectAutoLoginScript()
                     }
+
+                    // Sau 3 giây nếu vẫn ở trang Login, tự động mở màn hình ra để người dùng thấy giao diện
+                    handler.postDelayed({
+                        loadingOverlay.visibility = View.GONE
+                        webView.visibility = View.VISIBLE
+                    }, 3000)
                 }
                 // TRƯỜNG HỢP 2: Đã vào trong hệ thống (Đăng nhập thành công)
                 else {
@@ -165,7 +172,6 @@ class MainActivity : AppCompatActivity() {
             override fun onReceivedHttpError(view: WebView?, request: WebResourceRequest?, errorResponse: WebResourceResponse?) {
                 super.onReceivedHttpError(view, request, errorResponse)
                 if (request?.isForMainFrame == true && (errorResponse?.statusCode ?: 200) >= 400) {
-                    // Nếu lỗi ở trang chính
                     if (errorResponse?.statusCode == 404 && request.url.toString().contains("Account/Login")) {
                         showNetworkError("Lỗi đường dẫn máy chủ (HTTP 404)")
                     }
@@ -174,7 +180,6 @@ class MainActivity : AppCompatActivity() {
 
             @SuppressLint("WebViewClientOnReceivedSslError")
             override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {
-                // Trong môi trường BMS nội bộ, cho phép chấp nhận chứng chỉ tự ký (Self-signed)
                 handler?.proceed()
             }
         }
@@ -188,18 +193,20 @@ class MainActivity : AppCompatActivity() {
         errorLayout.visibility = View.GONE
         statusText.text = getString(R.string.connecting)
 
-        // Nếu chưa cấu hình mật khẩu, mở hộp thoại cài đặt
-        if (prefs.password.isEmpty()) {
-            showAdminSettingsDialog()
-            return
-        }
-
         val targetUrl = prefs.serverUrl.trim()
         webView.loadUrl(targetUrl)
+
+        // Timeout an toàn: Tối đa 5 giây nếu không chuyển trang, luôn luôn hiển thị WebView
+        handler.postDelayed({
+            if (loadingOverlay.visibility == View.VISIBLE && errorLayout.visibility != View.VISIBLE) {
+                loadingOverlay.visibility = View.GONE
+                webView.visibility = View.VISIBLE
+            }
+        }, 5000)
     }
 
     /**
-     * Tự động inject mã JavaScript điền thông tin tài khoản và kích hoạt click đăng nhập
+     * Tự động inject mã JavaScript đóng popup Cookie, điền thông tin tài khoản và kích hoạt đăng nhập
      */
     private fun injectAutoLoginScript() {
         val user = prefs.username
@@ -207,36 +214,55 @@ class MainActivity : AppCompatActivity() {
 
         val script = """
             (function() {
+                // 1. Tự động click nút OK trên popup Cookie của Sauter Vision Center
+                function dismissCookiePopup() {
+                    const allButtons = Array.from(document.querySelectorAll('button, input[type="button"], a'));
+                    const okBtn = allButtons.find(b => b.textContent && b.textContent.trim().toUpperCase() === 'OK');
+                    if (okBtn) {
+                        okBtn.click();
+                        return true;
+                    }
+                    return false;
+                }
+
+                // 2. Tự động điền form đăng nhập và click Login
                 function tryLogin() {
+                    dismissCookiePopup();
+
                     const uInput = document.querySelector('input[type="text"]') ||
                                    document.querySelector('.login-form input[type="text"]') ||
                                    document.querySelector('input[name="Username"]') ||
-                                   document.querySelector('input[name="username"]');
+                                   document.querySelector('input[name="username"]') ||
+                                   document.querySelector('input[id*="user" i]');
 
                     const pInput = document.querySelector('input[type="password"]') ||
                                    document.querySelector('.login-form input[type="password"]') ||
                                    document.querySelector('input[name="Password"]') ||
-                                   document.querySelector('input[name="password"]');
+                                   document.querySelector('input[name="password"]') ||
+                                   document.querySelector('input[id*="pass" i]');
 
                     const btn = document.querySelector('.login-button') ||
                                 document.querySelector('button[type="submit"]') ||
                                 document.querySelector('input[type="submit"]') ||
-                                document.querySelector('.btn-login');
+                                document.querySelector('.btn-login') ||
+                                Array.from(document.querySelectorAll('button')).find(b =>
+                                    b.textContent && (b.textContent.trim().toLowerCase().includes('log') || b.textContent.trim().toLowerCase().includes('sign'))
+                                );
 
                     if (uInput && pInput) {
-                        // 1. Điền Username
+                        // Điền Username
                         uInput.focus();
                         uInput.value = '$user';
                         uInput.dispatchEvent(new Event('input', { bubbles: true }));
                         uInput.dispatchEvent(new Event('change', { bubbles: true }));
 
-                        // 2. Điền Password
+                        // Điền Password
                         pInput.focus();
                         pInput.value = '$pass';
                         pInput.dispatchEvent(new Event('input', { bubbles: true }));
                         pInput.dispatchEvent(new Event('change', { bubbles: true }));
 
-                        // 3. Click nút đăng nhập
+                        // Click nút đăng nhập
                         setTimeout(function() {
                             if (btn) {
                                 btn.click();
@@ -244,18 +270,17 @@ class MainActivity : AppCompatActivity() {
                                 const form = uInput.closest('form');
                                 if (form) form.submit();
                             }
-                        }, 400);
+                        }, 500);
                         return true;
                     }
                     return false;
                 }
 
-                // Thử ngay lập tức
-                if (!tryLogin()) {
-                    // Nếu React/Redux chưa render xong, thử lại sau 500ms
-                    setTimeout(tryLogin, 500);
-                    setTimeout(tryLogin, 1200);
-                }
+                dismissCookiePopup();
+                setTimeout(dismissCookiePopup, 300);
+                setTimeout(tryLogin, 600);
+                setTimeout(tryLogin, 1500);
+                setTimeout(tryLogin, 3000);
             })();
         """.trimIndent()
 
@@ -268,36 +293,11 @@ class MainActivity : AppCompatActivity() {
         errorLayout.visibility = View.VISIBLE
         errorDetailText.text = "Lỗi kết nối: $detail\nĐang tự động thử lại sau 10 giây..."
 
-        // Tự động thử kết nối lại sau 10 giây
         handler.postDelayed({
             if (errorLayout.visibility == View.VISIBLE) {
                 startLoading()
             }
         }, 10000)
-    }
-
-    /**
-     * Vùng cảm ứng ẩn ở góc trên bên phải: Nhấn giữ 5 giây để mở màn hình cài đặt
-     */
-    @SuppressLint("ClickableViewAccessibility")
-    private fun setupSecretAdminHotspot() {
-        val longPressRunnable = Runnable {
-            showAdminSettingsDialog()
-        }
-
-        secretAdminButton.setOnTouchListener { _, event ->
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    handler.postDelayed(longPressRunnable, 5000) // Nhấn giữ 5 giây
-                    true
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    handler.removeCallbacks(longPressRunnable)
-                    true
-                }
-                else -> false
-            }
-        }
     }
 
     /**
@@ -350,11 +350,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
-        // Hỗ trợ nút Back để quay lại trang web trước đó trong WebView thay vì thoát app
         if (webView.canGoBack()) {
             webView.goBack()
-        } else {
-            // Không làm gì để tránh người dùng thoát ứng dụng Kiosk
         }
     }
 }
