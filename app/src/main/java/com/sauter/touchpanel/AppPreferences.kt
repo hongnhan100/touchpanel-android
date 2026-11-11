@@ -12,7 +12,13 @@ class AppPreferences(context: Context) {
         private const val KEY_USERNAME = "username"
         private const val KEY_PASSWORD = "password"
 
+        // 1. Link trang chủ / Đăng nhập của Sauter Vision Center
         const val DEFAULT_SERVER_URL = "https://demo.sauter.com.vn/VisionCenter"
+
+        // 2. Link ĐỒ HỌA BMS (GRAPHIC): Điền link sơ đồ BMS bạn muốn vào thẳng sau khi login ở đây
+        const val DEFAULT_GRAPHIC_URL = ""
+
+        // 3. Tài khoản và Mật khẩu tự động đăng nhập
         const val DEFAULT_USERNAME = "Administrator"
         const val DEFAULT_PASSWORD = ""
     }
@@ -22,7 +28,7 @@ class AppPreferences(context: Context) {
         set(value) = prefs.edit().putString(KEY_SERVER_URL, value.trim()).apply()
 
     var graphicUrl: String
-        get() = prefs.getString(KEY_GRAPHIC_URL, "") ?: ""
+        get() = prefs.getString(KEY_GRAPHIC_URL, DEFAULT_GRAPHIC_URL) ?: DEFAULT_GRAPHIC_URL
         set(value) = prefs.edit().putString(KEY_GRAPHIC_URL, value.trim()).apply()
 
     var username: String

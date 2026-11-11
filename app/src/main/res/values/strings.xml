@@ -1,6 +1,7 @@
 <resources>
     <string name="app_name">Sauter Touchpanel</string>
     <string name="default_url">https://demo.sauter.com.vn/VisionCenter</string>
+    <string name="default_graphic_url"></string>
     <string name="default_user">Administrator</string>
     <string name="default_pass"></string>
     <string name="connecting">Đang kết nối hệ thống Sauter Vision Center...</string>
