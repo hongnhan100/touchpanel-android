@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@color/sauter_dark"
+    android:padding="24dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_title"
+            android:textColor="@color/sauter_blue"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <!-- Cấu hình Server URL -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/server_url"
+            android:textColor="@color/white"
+            android:textSize="14sp" />
+
+        <EditText
+            android:id="@+id/etServerUrl"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="6dp"
+            android:background="#2A2A2A"
+            android:hint="https://demo.sauter.com.vn/VisionCenter"
+            android:textColorHint="@color/gray"
+            android:textColor="@color/white"
+            android:padding="10dp"
+            android:textSize="14sp"
+            android:inputType="textUri" />
+
+        <!-- Cấu hình Link đồ họa BMS (Graphic page) vào trực tiếp -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="Link Đồ họa BMS / Graphic (Tùy chọn vào thẳng sau khi login):"
+            android:textColor="@color/sauter_light_blue"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/etGraphicUrl"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="6dp"
+            android:background="#2A2A2A"
+            android:hint="Ví dụ: https://demo.sauter.com.vn/VisionCenter/.../Graphic"
+            android:textColorHint="@color/gray"
+            android:textColor="@color/white"
+            android:padding="10dp"
+            android:textSize="14sp"
+            android:inputType="textUri" />
+
+        <!-- Cấu hình Username -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="@string/username"
+            android:textColor="@color/white"
+            android:textSize="14sp" />
+
+        <EditText
+            android:id="@+id/etUsername"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="6dp"
+            android:background="#2A2A2A"
+            android:hint="Administrator"
+            android:textColorHint="@color/gray"
+            android:textColor="@color/white"
+            android:padding="10dp"
+            android:textSize="14sp"
+            android:inputType="text" />
+
+        <!-- Cấu hình Password -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="@string/password"
+            android:textColor="@color/white"
+            android:textSize="14sp" />
+
+        <EditText
+            android:id="@+id/etPassword"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="6dp"
+            android:background="#2A2A2A"
+            android:hint="••••••••"
+            android:textColorHint="@color/gray"
+            android:textColor="@color/white"
+            android:padding="10dp"
+            android:textSize="14sp"
+            android:inputType="textPassword" />
+
+        <!-- Nút lưu và đóng -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:gravity="end"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnCancel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:backgroundTint="#444444"
+                android:text="@string/cancel"
+                android:textColor="@color/white" />
+
+            <Button
+                android:id="@+id/btnSave"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:backgroundTint="@color/sauter_blue"
+                android:text="@string/save"
+                android:textColor="@color/white" />
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>
