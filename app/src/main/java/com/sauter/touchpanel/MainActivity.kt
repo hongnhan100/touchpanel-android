@@ -112,6 +112,40 @@ class MainActivity : AppCompatActivity() {
         cookieManager.setAcceptCookie(true)
         cookieManager.setAcceptThirdPartyCookies(webView, true)
 
+        // Hỗ trợ HTML5 Fullscreen API cho WebChromeClient
+        WebView.setWebContentsDebuggingEnabled(true)
+        webView.webChromeClient = object : WebChromeClient() {
+            private var customView: View? = null
+            private var customViewCallback: CustomViewCallback? = null
+
+            override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
+                super.onShowCustomView(view, callback)
+                if (customView != null) {
+                    callback?.onCustomViewHidden()
+                    return
+                }
+                customView = view
+                customViewCallback = callback
+                (window.decorView as android.widget.FrameLayout).addView(
+                    view,
+                    android.widget.FrameLayout.LayoutParams(
+                        android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                        android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+                    )
+                )
+                applyKioskImmersiveMode()
+            }
+
+            override fun onHideCustomView() {
+                super.onHideCustomView()
+                if (customView == null) return
+                (window.decorView as android.widget.FrameLayout).removeView(customView)
+                customView = null
+                customViewCallback?.onCustomViewHidden()
+                applyKioskImmersiveMode()
+            }
+        }
+
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
@@ -362,27 +396,65 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Tự động tìm và bấm nút Fullscreen của khung đồ họa BMS (icon 4 mũi tên glyphicon-fullscreen)
+     * Tự động phát hiện và kích hoạt chế độ Fullscreen đồ họa BMS bằng MutationObserver
+     * Hoạt động đáp ứng (responsive) trên mọi kích thước màn hình mà không dùng toạ độ cố định
      */
     private fun triggerBmsGraphicFullscreen() {
         val fsScript = """
             (function() {
-                function clickFullscreen() {
+                function tryClickFullscreen() {
+                    // 1. Tìm icon 4 mũi tên qua các class chuẩn của Sauter Vision Center
                     const icon = document.querySelector('.glyphicon-fullscreen') ||
-                                 document.querySelector('[class*="fullscreen" i]') ||
-                                 document.querySelector('.icon-fullscreen');
+                                 document.querySelector('[class*="glyphicon-fullscreen"]') ||
+                                 document.querySelector('.fa-expand') ||
+                                 document.querySelector('.icon-fullscreen') ||
+                                 document.querySelector('[title*="Full" i]') ||
+                                 document.querySelector('[aria-label*="Full" i]');
+
                     if (icon) {
-                        const btn = icon.closest('a, button, div') || icon;
+                        const btn = icon.closest('a, button, span, div') || icon;
                         btn.click();
                         return true;
+                    }
+
+                    // 2. Kiểm tra bên trong iframe (nếu đồ họa BMS được render qua iframe)
+                    const iframes = document.querySelectorAll('iframe');
+                    for (let i = 0; i < iframes.length; i++) {
+                        try {
+                            const innerDoc = iframes[i].contentDocument || iframes[i].contentWindow.document;
+                            const innerIcon = innerDoc.querySelector('.glyphicon-fullscreen, [class*="fullscreen" i]');
+                            if (innerIcon) {
+                                const innerBtn = innerIcon.closest('a, button, span, div') || innerIcon;
+                                innerBtn.click();
+                                return true;
+                            }
+                        } catch(e) {}
                     }
                     return false;
                 }
 
-                if (!clickFullscreen()) {
-                    setTimeout(clickFullscreen, 1000);
-                    setTimeout(clickFullscreen, 2500);
-                    setTimeout(clickFullscreen, 5000);
+                // Kỹ thuật 1: MutationObserver - Lập tức click ngay mili-giây đầu tiên khi icon đồ họa xuất hiện trong DOM
+                if (!tryClickFullscreen()) {
+                    const observer = new MutationObserver(function(mutations, obs) {
+                        if (tryClickFullscreen()) {
+                            obs.disconnect();
+                        }
+                    });
+
+                    observer.observe(document.body || document.documentElement, {
+                        childList: true,
+                        subtree: true
+                    });
+
+                    // Kỹ thuật 2: Polling dự phòng mỗi 500ms trong 10 giây đầu
+                    let attempts = 0;
+                    const timer = setInterval(function() {
+                        attempts++;
+                        if (tryClickFullscreen() || attempts > 20) {
+                            clearInterval(timer);
+                            observer.disconnect();
+                        }
+                    }, 500);
                 }
             })();
         """.trimIndent()
