@@ -250,17 +250,24 @@ class MainActivity : AppCompatActivity() {
                                 );
 
                     if (uInput && pInput) {
-                        // Điền Username
-                        uInput.focus();
-                        uInput.value = '$user';
-                        uInput.dispatchEvent(new Event('input', { bubbles: true }));
-                        uInput.dispatchEvent(new Event('change', { bubbles: true }));
+                        function setReactValue(element, val) {
+                            const lastVal = element.value;
+                            element.value = val;
+                            const event = new Event('input', { bubbles: true });
+                            const tracker = element._valueTracker;
+                            if (tracker) {
+                                tracker.setValue(lastVal);
+                            }
+                            element.dispatchEvent(event);
+                            element.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
 
-                        // Điền Password
+                        // Điền Username & Password đồng bộ với React State
+                        uInput.focus();
+                        setReactValue(uInput, '$user');
+
                         pInput.focus();
-                        pInput.value = '$pass';
-                        pInput.dispatchEvent(new Event('input', { bubbles: true }));
-                        pInput.dispatchEvent(new Event('change', { bubbles: true }));
+                        setReactValue(pInput, '$pass');
 
                         // Click nút đăng nhập
                         setTimeout(function() {
