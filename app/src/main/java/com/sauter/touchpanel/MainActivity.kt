@@ -161,6 +161,11 @@ class MainActivity : AppCompatActivity() {
                     loadingOverlay.visibility = View.GONE
                     webView.visibility = View.VISIBLE
                     errorLayout.visibility = View.GONE
+
+                    // Tự động kích hoạt nút Fullscreen của khung đồ họa BMS (icon 4 mũi tên)
+                    handler.postDelayed({
+                        triggerBmsGraphicFullscreen()
+                    }, 1200)
                 }
             }
 
@@ -354,6 +359,35 @@ class MainActivity : AppCompatActivity() {
         }
 
         dialog.show()
+    }
+
+    /**
+     * Tự động tìm và bấm nút Fullscreen của khung đồ họa BMS (icon 4 mũi tên glyphicon-fullscreen)
+     */
+    private fun triggerBmsGraphicFullscreen() {
+        val fsScript = """
+            (function() {
+                function clickFullscreen() {
+                    const icon = document.querySelector('.glyphicon-fullscreen') ||
+                                 document.querySelector('[class*="fullscreen" i]') ||
+                                 document.querySelector('.icon-fullscreen');
+                    if (icon) {
+                        const btn = icon.closest('a, button, div') || icon;
+                        btn.click();
+                        return true;
+                    }
+                    return false;
+                }
+
+                if (!clickFullscreen()) {
+                    setTimeout(clickFullscreen, 1000);
+                    setTimeout(clickFullscreen, 2500);
+                    setTimeout(clickFullscreen, 5000);
+                }
+            })();
+        """.trimIndent()
+
+        webView.evaluateJavascript(fsScript, null)
     }
 
     override fun onBackPressed() {
