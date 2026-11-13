@@ -185,19 +185,11 @@ class MainActivity : AppCompatActivity() {
 
                 if (url == null) return
 
-                // TRƯỜNG HỢP 1: Đang ở trang Đăng nhập -> Tự động điền & Submit
+                // TRƯỜNG HỢP 1: Đang ở trang Đăng nhập -> Tự động điền & Submit (Hiển thị trực tiếp cho người dùng thấy)
                 if (url.contains("Account/Login", ignoreCase = true) || url.contains("login", ignoreCase = true)) {
-                    statusText.text = getString(R.string.authenticating)
-                    loadingOverlay.visibility = View.VISIBLE
+                    loadingOverlay.visibility = View.GONE
+                    webView.visibility = View.VISIBLE
                     injectAutoLoginScript()
-
-                    // Chỉ mở màn hình nếu sau 10 giây vẫn không thể tự đăng nhập (để người dùng tự nhập)
-                    handler.postDelayed({
-                        if (webView.url?.contains("Login", ignoreCase = true) == true) {
-                            loadingOverlay.visibility = View.GONE
-                            webView.visibility = View.VISIBLE
-                        }
-                    }, 10000)
                 }
                 // TRƯỜNG HỢP 2: Đã vào trong hệ thống (Đăng nhập thành công)
                 else {
@@ -278,21 +270,12 @@ class MainActivity : AppCompatActivity() {
     private fun startLoading() {
         isRedirectedToGraphic = false
         isLoginInjected = false
-        webView.visibility = View.INVISIBLE
-        loadingOverlay.visibility = View.VISIBLE
+        webView.visibility = View.VISIBLE
+        loadingOverlay.visibility = View.GONE
         errorLayout.visibility = View.GONE
-        statusText.text = getString(R.string.connecting)
 
         val targetUrl = prefs.serverUrl.trim()
         webView.loadUrl(targetUrl)
-
-        // Timeout an toàn: Tối đa 12 giây nếu không chuyển trang, luôn luôn hiển thị WebView
-        handler.postDelayed({
-            if (loadingOverlay.visibility == View.VISIBLE && errorLayout.visibility != View.VISIBLE) {
-                loadingOverlay.visibility = View.GONE
-                webView.visibility = View.VISIBLE
-            }
-        }, 12000)
     }
 
     /**
@@ -303,20 +286,13 @@ class MainActivity : AppCompatActivity() {
         isReLoggingIn = true
 
         handler.post {
-            statusText.text = "Phiên làm việc hết hạn. Đang tự động đăng nhập lại..."
-            loadingOverlay.visibility = View.VISIBLE
-
-            // Đảm bảo không bị treo màn hình chờ quá 8 giây
-            handler.postDelayed({
-                if (loadingOverlay.visibility == View.VISIBLE) {
-                    loadingOverlay.visibility = View.GONE
-                    webView.visibility = View.VISIBLE
-                    isReLoggingIn = false
-                }
-            }, 8000)
-
-            // Tải lại trang đăng nhập gốc để lấy session token mới
+            // Tải lại trang đăng nhập gốc để lấy session token mới trực tiếp trên màn hình
             val loginUrl = prefs.serverUrl.trim()
+            isLoginInjected = false
+            isRedirectedToGraphic = false
+            webView.loadUrl(loginUrl)
+        }
+    }
             isLoginInjected = false
             isRedirectedToGraphic = false
             webView.loadUrl(loginUrl)

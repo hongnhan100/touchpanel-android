@@ -9,7 +9,7 @@
         android:id="@+id/webView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:visibility="invisible" />
+        android:visibility="visible" />
 
     <!-- Màn hình chờ Splash / Loading che giấu quá trình Auto-Login -->
     <LinearLayout
@@ -19,7 +19,7 @@
         android:gravity="center"
         android:orientation="vertical"
         android:background="@color/sauter_dark"
-        android:visibility="visible">
+        android:visibility="gone">
 
         <TextView
             android:layout_width="wrap_content"
