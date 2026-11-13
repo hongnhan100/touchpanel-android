@@ -34,6 +34,16 @@ class MainActivity : AppCompatActivity() {
 
     private var isRedirectedToGraphic = false
     private var isLoginInjected = false
+    private var isReLoggingIn = false
+
+    // Bộ hẹn giờ định kỳ làm mới phiên làm việc (mặc định 15 phút)
+    private val periodicRefreshRunnable = object : Runnable {
+        override fun run() {
+            triggerSilentReLogin("Đến chu kỳ làm mới phiên (Session Keep-Alive)")
+            val intervalMs = (prefs.refreshIntervalMinutes.coerceAtLeast(5)) * 60 * 1000L
+            handler.postDelayed(this, intervalMs)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,6 +62,14 @@ class MainActivity : AppCompatActivity() {
 
         // Bắt đầu nạp trang web Vision Center
         startLoading()
+
+        // Khởi động bộ đếm giờ tự động làm mới phiên
+        schedulePeriodicRefresh()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        handler.removeCallbacks(periodicRefreshRunnable)
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -66,6 +84,12 @@ class MainActivity : AppCompatActivity() {
         val controller = WindowInsetsControllerCompat(window, window.decorView)
         controller.hide(WindowInsetsCompat.Type.systemBars())
         controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+    }
+
+    private fun schedulePeriodicRefresh() {
+        handler.removeCallbacks(periodicRefreshRunnable)
+        val intervalMs = (prefs.refreshIntervalMinutes.coerceAtLeast(5)) * 60 * 1000L
+        handler.postDelayed(periodicRefreshRunnable, intervalMs)
     }
 
     private fun initViews() {
@@ -177,6 +201,11 @@ class MainActivity : AppCompatActivity() {
                 }
                 // TRƯỜNG HỢP 2: Đã vào trong hệ thống (Đăng nhập thành công)
                 else {
+                    isReLoggingIn = false
+
+                    // Kiểm tra xem trang có bị lỗi "Unauthorized" hay không
+                    checkAndRecoverFromUnauthorized()
+
                     val targetGraphicUrl = prefs.graphicUrl.trim()
 
                     // Nếu người dùng có cấu hình Link BMS Graphic và chưa chuyển hướng tới đó:
@@ -210,8 +239,18 @@ class MainActivity : AppCompatActivity() {
 
             override fun onReceivedHttpError(view: WebView?, request: WebResourceRequest?, errorResponse: WebResourceResponse?) {
                 super.onReceivedHttpError(view, request, errorResponse)
-                if (request?.isForMainFrame == true && (errorResponse?.statusCode ?: 200) >= 400) {
-                    if (errorResponse?.statusCode == 404 && request.url.toString().contains("Account/Login")) {
+                val statusCode = errorResponse?.statusCode ?: 200
+
+                // BẮT LỖI 401 UNAUTHORIZED HOẶC 403 FORBIDDEN KHI HẾT PHIÊN
+                if (statusCode == 401 || statusCode == 403) {
+                    if (request?.isForMainFrame == true || request?.url.toString().contains("/VisionCenter/", ignoreCase = true)) {
+                        triggerSilentReLogin("Phát hiện lỗi HTTP $statusCode Unauthorized")
+                        return
+                    }
+                }
+
+                if (request?.isForMainFrame == true && statusCode >= 400) {
+                    if (statusCode == 404 && request.url.toString().contains("Account/Login")) {
                         showNetworkError("Lỗi đường dẫn máy chủ (HTTP 404)")
                     }
                 }
@@ -219,7 +258,19 @@ class MainActivity : AppCompatActivity() {
 
             @SuppressLint("WebViewClientOnReceivedSslError")
             override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {
+                // Hỗ trợ trạm Sauter nội bộ dùng chứng chỉ tự ký (Self-signed)
                 handler?.proceed()
+            }
+
+            // Hỗ trợ HTTP Basic Auth (nếu chạy với Sauter moduWeb Unity)
+            override fun onReceivedHttpAuthRequest(view: WebView?, handler: HttpAuthHandler?, host: String?, realm: String?) {
+                val user = prefs.username
+                val pass = prefs.password
+                if (user.isNotEmpty() && pass.isNotEmpty()) {
+                    handler?.proceed(user, pass)
+                } else {
+                    super.onReceivedHttpAuthRequest(view, handler, host, realm)
+                }
             }
         }
     }
@@ -242,6 +293,46 @@ class MainActivity : AppCompatActivity() {
                 webView.visibility = View.VISIBLE
             }
         }, 5000)
+    }
+
+    /**
+     * Tự động đăng nhập lại khi hết phiên (Session Timeout / Unauthorized)
+     */
+    private fun triggerSilentReLogin(reason: String) {
+        if (isReLoggingIn) return
+        isReLoggingIn = true
+
+        handler.post {
+            statusText.text = "Phiên làm việc hết hạn. Đang tự động đăng nhập lại..."
+            loadingOverlay.visibility = View.VISIBLE
+
+            // Tải lại trang đăng nhập gốc để lấy session token mới
+            val loginUrl = prefs.serverUrl.trim()
+            isLoginInjected = false
+            isRedirectedToGraphic = false
+            webView.loadUrl(loginUrl)
+        }
+    }
+
+    /**
+     * Kiểm tra nội dung trang có chứa chữ Unauthorized hay không (bắt trường hợp server trả mã 200 nhưng nội dung là Unauthorized)
+     */
+    private fun checkAndRecoverFromUnauthorized() {
+        val checkJs = """
+            (function() {
+                const text = document.body ? document.body.innerText.trim() : '';
+                if (text === 'Unauthorized' || text.startsWith('Unauthorized') || document.title === 'Unauthorized') {
+                    return true;
+                }
+                return false;
+            })();
+        """.trimIndent()
+
+        webView.evaluateJavascript(checkJs) { result ->
+            if (result == "true") {
+                triggerSilentReLogin("Trang hiển thị chữ Unauthorized")
+            }
+        }
     }
 
     /**
@@ -308,6 +399,12 @@ class MainActivity : AppCompatActivity() {
                         pInput.focus();
                         setReactValue(pInput, '$pass');
 
+                        // Tick chọn ô "Keep me logged in"
+                        const keepMe = document.querySelector('input[type="checkbox"]');
+                        if (keepMe && !keepMe.checked) {
+                            keepMe.click();
+                        }
+
                         // Click nút đăng nhập
                         setTimeout(function() {
                             if (btn) {
@@ -347,7 +444,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Hộp thoại cấu hình URL, Link đồ họa BMS, Username và Password
+     * Hộp thoại cấu hình URL, Link đồ họa BMS, Username, Password và Chu kỳ Refresh
      */
     private fun showAdminSettingsDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_settings, null)
@@ -355,6 +452,7 @@ class MainActivity : AppCompatActivity() {
         val etGraphicUrl = dialogView.findViewById<EditText>(R.id.etGraphicUrl)
         val etUsername = dialogView.findViewById<EditText>(R.id.etUsername)
         val etPassword = dialogView.findViewById<EditText>(R.id.etPassword)
+        val etRefreshInterval = dialogView.findViewById<EditText>(R.id.etRefreshInterval)
         val btnCancel = dialogView.findViewById<Button>(R.id.btnCancel)
         val btnSave = dialogView.findViewById<Button>(R.id.btnSave)
 
@@ -362,6 +460,7 @@ class MainActivity : AppCompatActivity() {
         etGraphicUrl.setText(prefs.graphicUrl)
         etUsername.setText(prefs.username)
         etPassword.setText(prefs.password)
+        etRefreshInterval.setText(prefs.refreshIntervalMinutes.toString())
 
         val dialog = AlertDialog.Builder(this)
             .setView(dialogView)
@@ -378,17 +477,21 @@ class MainActivity : AppCompatActivity() {
             val newGraphic = etGraphicUrl.text.toString().trim()
             val newUser = etUsername.text.toString().trim()
             val newPass = etPassword.text.toString().trim()
+            val newInterval = etRefreshInterval.text.toString().trim().toIntOrNull() ?: 15
 
             if (newServer.isNotEmpty()) prefs.serverUrl = newServer
             prefs.graphicUrl = newGraphic
             if (newUser.isNotEmpty()) prefs.username = newUser
             if (newPass.isNotEmpty()) prefs.password = newPass
+            prefs.refreshIntervalMinutes = newInterval
 
             dialog.dismiss()
             applyKioskImmersiveMode()
 
-            // Xóa cookie cũ và tải lại trang với cấu hình mới
-            CookieManager.getInstance().removeAllCookies(null)
+            // Cập nhật lại lịch đếm giờ refresh
+            schedulePeriodicRefresh()
+
+            // Tải lại trang với cấu hình mới
             startLoading()
         }
 

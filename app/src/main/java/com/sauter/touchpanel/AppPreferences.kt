@@ -11,6 +11,7 @@ class AppPreferences(context: Context) {
         private const val KEY_GRAPHIC_URL = "graphic_url"
         private const val KEY_USERNAME = "username"
         private const val KEY_PASSWORD = "password"
+        private const val KEY_REFRESH_INTERVAL = "refresh_interval"
 
         // 1. Link trang chủ / Đăng nhập của Sauter Vision Center
         const val DEFAULT_SERVER_URL = "https://demo.sauter.com.vn/VisionCenter"
@@ -21,6 +22,9 @@ class AppPreferences(context: Context) {
         // 3. Tài khoản và Mật khẩu tự động đăng nhập
         const val DEFAULT_USERNAME = "Administrator"
         const val DEFAULT_PASSWORD = ""
+
+        // 4. Chu kỳ tự động làm mới phiên làm việc (phút) - Mặc định 15 phút
+        const val DEFAULT_REFRESH_INTERVAL = 15
     }
 
     var serverUrl: String
@@ -38,4 +42,8 @@ class AppPreferences(context: Context) {
     var password: String
         get() = prefs.getString(KEY_PASSWORD, DEFAULT_PASSWORD) ?: DEFAULT_PASSWORD
         set(value) = prefs.edit().putString(KEY_PASSWORD, value.trim()).apply()
+
+    var refreshIntervalMinutes: Int
+        get() = prefs.getInt(KEY_REFRESH_INTERVAL, DEFAULT_REFRESH_INTERVAL)
+        set(value) = prefs.edit().putInt(KEY_REFRESH_INTERVAL, value).apply()
 }
