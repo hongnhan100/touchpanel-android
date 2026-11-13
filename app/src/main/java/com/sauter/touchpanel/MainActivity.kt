@@ -241,9 +241,9 @@ class MainActivity : AppCompatActivity() {
                 super.onReceivedHttpError(view, request, errorResponse)
                 val statusCode = errorResponse?.statusCode ?: 200
 
-                // BẮT LỖI 401 UNAUTHORIZED HOẶC 403 FORBIDDEN KHI HẾT PHIÊN
+                // BẮT LỖI 401 UNAUTHORIZED HOẶC 403 FORBIDDEN KHI HẾT PHIÊN TRÊN MÀN HÌNH CHÍNH
                 if (statusCode == 401 || statusCode == 403) {
-                    if (request?.isForMainFrame == true || request?.url.toString().contains("/VisionCenter/", ignoreCase = true)) {
+                    if (request?.isForMainFrame == true) {
                         triggerSilentReLogin("Phát hiện lỗi HTTP $statusCode Unauthorized")
                         return
                     }
@@ -305,6 +305,15 @@ class MainActivity : AppCompatActivity() {
         handler.post {
             statusText.text = "Phiên làm việc hết hạn. Đang tự động đăng nhập lại..."
             loadingOverlay.visibility = View.VISIBLE
+
+            // Đảm bảo không bị treo màn hình chờ quá 8 giây
+            handler.postDelayed({
+                if (loadingOverlay.visibility == View.VISIBLE) {
+                    loadingOverlay.visibility = View.GONE
+                    webView.visibility = View.VISIBLE
+                    isReLoggingIn = false
+                }
+            }, 8000)
 
             // Tải lại trang đăng nhập gốc để lấy session token mới
             val loginUrl = prefs.serverUrl.trim()
