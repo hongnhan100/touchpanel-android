@@ -186,18 +186,18 @@ class MainActivity : AppCompatActivity() {
                 if (url == null) return
 
                 // TRƯỜNG HỢP 1: Đang ở trang Đăng nhập -> Tự động điền & Submit
-                if (url.contains("Account/Login", ignoreCase = true)) {
-                    if (!isLoginInjected) {
-                        isLoginInjected = true
-                        statusText.text = getString(R.string.authenticating)
-                        injectAutoLoginScript()
-                    }
+                if (url.contains("Account/Login", ignoreCase = true) || url.contains("login", ignoreCase = true)) {
+                    statusText.text = getString(R.string.authenticating)
+                    loadingOverlay.visibility = View.VISIBLE
+                    injectAutoLoginScript()
 
-                    // Sau 3 giây nếu vẫn ở trang Login, tự động mở màn hình ra để người dùng thấy giao diện
+                    // Chỉ mở màn hình nếu sau 10 giây vẫn không thể tự đăng nhập (để người dùng tự nhập)
                     handler.postDelayed({
-                        loadingOverlay.visibility = View.GONE
-                        webView.visibility = View.VISIBLE
-                    }, 3000)
+                        if (webView.url?.contains("Login", ignoreCase = true) == true) {
+                            loadingOverlay.visibility = View.GONE
+                            webView.visibility = View.VISIBLE
+                        }
+                    }, 10000)
                 }
                 // TRƯỜNG HỢP 2: Đã vào trong hệ thống (Đăng nhập thành công)
                 else {
@@ -286,13 +286,13 @@ class MainActivity : AppCompatActivity() {
         val targetUrl = prefs.serverUrl.trim()
         webView.loadUrl(targetUrl)
 
-        // Timeout an toàn: Tối đa 5 giây nếu không chuyển trang, luôn luôn hiển thị WebView
+        // Timeout an toàn: Tối đa 12 giây nếu không chuyển trang, luôn luôn hiển thị WebView
         handler.postDelayed({
             if (loadingOverlay.visibility == View.VISIBLE && errorLayout.visibility != View.VISIBLE) {
                 loadingOverlay.visibility = View.GONE
                 webView.visibility = View.VISIBLE
             }
-        }, 5000)
+        }, 12000)
     }
 
     /**
@@ -431,8 +431,10 @@ class MainActivity : AppCompatActivity() {
                 dismissCookiePopup();
                 setTimeout(dismissCookiePopup, 300);
                 setTimeout(tryLogin, 600);
-                setTimeout(tryLogin, 1500);
-                setTimeout(tryLogin, 3000);
+                setTimeout(tryLogin, 1200);
+                setTimeout(tryLogin, 2500);
+                setTimeout(tryLogin, 4000);
+                setTimeout(tryLogin, 6000);
             })();
         """.trimIndent()
 
