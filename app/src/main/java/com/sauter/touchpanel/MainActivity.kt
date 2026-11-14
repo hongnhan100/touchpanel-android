@@ -2,11 +2,19 @@ package com.sauter.touchpanel
 
 import android.annotation.SuppressLint
 import android.app.AlertDialog
+import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.net.http.SslError
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
+import android.text.InputType
 import android.view.View
 import android.view.WindowManager
 import android.webkit.*
@@ -14,6 +22,8 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -35,6 +45,10 @@ class MainActivity : AppCompatActivity() {
     private var isRedirectedToGraphic = false
     private var isLoginInjected = false
     private var isReLoggingIn = false
+    private var isNetworkAvailable = false
+
+    private var connectivityManager: ConnectivityManager? = null
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     // Bộ hẹn giờ định kỳ làm mới phiên làm việc (mặc định 15 phút)
     private val periodicRefreshRunnable = object : Runnable {
@@ -49,27 +63,40 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         prefs = AppPreferences(this)
 
-        // 1. Giữ màn hình luôn sáng 24/7 cho thiết bị Kiosk Touchpanel
+        // 1. Giữ màn hình luôn sáng 24/7 cho thiết bị Kiosk Touchpanel ONERugged P10R
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         // 2. Kích hoạt chế độ Immersive Toàn màn hình (Ẩn Status Bar & Navigation Bar)
         applyKioskImmersiveMode()
+
+        // 3. Khóa phím Back theo chuẩn Android 12 để chống thoát Kiosk
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (webView.canGoBack()) {
+                    webView.goBack()
+                }
+                // Chặn thoát ứng dụng khi hết lịch sử web
+            }
+        })
 
         setContentView(R.layout.activity_main)
 
         initViews()
         setupWebView()
 
-        // Bắt đầu nạp trang web Vision Center
-        startLoading()
+        // 4. Đăng ký giám sát mạng cổng RJ45 Ethernet / Wifi
+        setupNetworkMonitoring()
 
-        // Khởi động bộ đếm giờ tự động làm mới phiên
+        // 5. Khởi động bộ đếm giờ tự động làm mới phiên
         schedulePeriodicRefresh()
     }
 
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacks(periodicRefreshRunnable)
+        try {
+            networkCallback?.let { connectivityManager?.unregisterNetworkCallback(it) }
+        } catch (_: Exception) {}
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -84,6 +111,53 @@ class MainActivity : AppCompatActivity() {
         val controller = WindowInsetsControllerCompat(window, window.decorView)
         controller.hide(WindowInsetsCompat.Type.systemBars())
         controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+    }
+
+    private fun setupNetworkMonitoring() {
+        connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        val request = NetworkRequest.Builder()
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .build()
+
+        networkCallback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                runOnUiThread {
+                    isNetworkAvailable = true
+                    if (errorLayout.visibility == View.VISIBLE || loadingOverlay.visibility == View.VISIBLE) {
+                        statusText.text = getString(R.string.connecting)
+                        startLoading()
+                    }
+                }
+            }
+
+            override fun onLost(network: Network) {
+                runOnUiThread {
+                    isNetworkAvailable = false
+                }
+            }
+        }
+
+        try {
+            networkCallback?.let { connectivityManager?.registerNetworkCallback(request, it) }
+        } catch (_: Exception) {}
+
+        // Kiểm tra nhanh kết nối hiện tại khi vừa mở app
+        val activeNet = connectivityManager?.activeNetwork
+        val caps = connectivityManager?.getNetworkCapabilities(activeNet)
+        isNetworkAvailable = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+
+        if (isNetworkAvailable) {
+            startLoading()
+        } else {
+            statusText.text = "Đang chờ kết nối cổng mạng RJ45 / BMS..."
+            loadingOverlay.visibility = View.VISIBLE
+            // Vẫn thử tải sau 3 giây đề phòng mạng Ethernet đang đàm phán IP DHCP
+            handler.postDelayed({
+                if (loadingOverlay.visibility == View.VISIBLE) {
+                    startLoading()
+                }
+            }, 3000)
+        }
     }
 
     private fun schedulePeriodicRefresh() {
@@ -108,9 +182,9 @@ class MainActivity : AppCompatActivity() {
             startLoading()
         }
 
-        // Bấm nút bánh răng ⚙ góc trên bên phải để mở cài đặt cấu hình ngay lập tức
+        // Bấm nút bánh răng ⚙ góc trên bên phải: yêu cầu nhập mã PIN Kỹ thuật viên
         btnQuickSettings.setOnClickListener {
-            showAdminSettingsDialog()
+            promptAdminPinAndOpenSettings()
         }
     }
 
@@ -286,7 +360,6 @@ class MainActivity : AppCompatActivity() {
         isReLoggingIn = true
 
         handler.post {
-            // Tải lại trang đăng nhập gốc để lấy session token mới trực tiếp trên màn hình
             val loginUrl = prefs.serverUrl.trim()
             isLoginInjected = false
             isRedirectedToGraphic = false
@@ -295,88 +368,78 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Kiểm tra nội dung trang có chứa chữ Unauthorized hay không (bắt trường hợp server trả mã 200 nhưng nội dung là Unauthorized)
+     * Kiểm tra nội dung trang có chứa chữ Unauthorized hay không
      */
     private fun checkAndRecoverFromUnauthorized() {
-        val checkJs = """
+        val checkScript = """
             (function() {
-                const text = document.body ? document.body.innerText.trim() : '';
-                if (text === 'Unauthorized' || text.startsWith('Unauthorized') || document.title === 'Unauthorized') {
-                    return true;
+                const bodyText = document.body ? (document.body.innerText || '') : '';
+                if (bodyText.includes('Unauthorized') || bodyText.includes('401') || bodyText.includes('Access Denied')) {
+                    return 'UNAUTHORIZED_FOUND';
                 }
-                return false;
+                return 'OK';
             })();
         """.trimIndent()
 
-        webView.evaluateJavascript(checkJs) { result ->
-            if (result == "true") {
-                triggerSilentReLogin("Trang hiển thị chữ Unauthorized")
+        webView.evaluateJavascript(checkScript) { result ->
+            if (result != null && result.contains("UNAUTHORIZED_FOUND")) {
+                triggerSilentReLogin("Nội dung trang chứa thông báo Unauthorized")
             }
         }
     }
 
     /**
-     * Tự động inject mã JavaScript đóng popup Cookie, điền thông tin tài khoản và kích hoạt đăng nhập
+     * Tự động điền tài khoản, mật khẩu và submit form đăng nhập React/Sauter
      */
     private fun injectAutoLoginScript() {
-        val user = prefs.username
-        val pass = prefs.password
+        if (isLoginInjected) return
+        isLoginInjected = true
+
+        val user = prefs.username.replace("'", "\\'")
+        val pass = prefs.password.replace("'", "\\'")
 
         val script = """
             (function() {
-                // 1. Tự động click nút OK trên popup Cookie của Sauter Vision Center
                 function dismissCookiePopup() {
-                    const allButtons = Array.from(document.querySelectorAll('button, input[type="button"], a'));
-                    const okBtn = allButtons.find(b => b.textContent && b.textContent.trim().toUpperCase() === 'OK');
-                    if (okBtn) {
-                        okBtn.click();
-                        return true;
+                    const buttons = Array.from(document.querySelectorAll('button, a'));
+                    for (let btn of buttons) {
+                        const t = btn.innerText.toLowerCase();
+                        if (t.includes('accept') || t.includes('đồng ý') || t.includes('ok') || t.includes('i agree')) {
+                            btn.click();
+                            break;
+                        }
                     }
-                    return false;
                 }
 
-                // 2. Tự động điền form đăng nhập và click Login
+                function setReactValue(input, value) {
+                    if (!input) return;
+                    input.focus();
+                    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+                    nativeInputValueSetter.call(input, value);
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+
                 function tryLogin() {
-                    dismissCookiePopup();
+                    let uInput = document.getElementById('UserName') ||
+                                 document.getElementById('username') ||
+                                 document.querySelector('input[name="UserName"]') ||
+                                 document.querySelector('input[name="username"]') ||
+                                 document.querySelector('input[type="text"]');
 
-                    const uInput = document.querySelector('input[type="text"]') ||
-                                   document.querySelector('.login-form input[type="text"]') ||
-                                   document.querySelector('input[name="Username"]') ||
-                                   document.querySelector('input[name="username"]') ||
-                                   document.querySelector('input[id*="user" i]');
+                    let pInput = document.getElementById('Password') ||
+                                 document.getElementById('password') ||
+                                 document.querySelector('input[name="Password"]') ||
+                                 document.querySelector('input[name="password"]') ||
+                                 document.querySelector('input[type="password"]');
 
-                    const pInput = document.querySelector('input[type="password"]') ||
-                                   document.querySelector('.login-form input[type="password"]') ||
-                                   document.querySelector('input[name="Password"]') ||
-                                   document.querySelector('input[name="password"]') ||
-                                   document.querySelector('input[id*="pass" i]');
-
-                    const btn = document.querySelector('.login-button') ||
-                                document.querySelector('button[type="submit"]') ||
-                                document.querySelector('input[type="submit"]') ||
-                                document.querySelector('.btn-login') ||
-                                Array.from(document.querySelectorAll('button')).find(b =>
-                                    b.textContent && (b.textContent.trim().toLowerCase().includes('log') || b.textContent.trim().toLowerCase().includes('sign'))
-                                );
+                    let btn = document.getElementById('btnLogin') ||
+                              document.querySelector('button[type="submit"]') ||
+                              document.querySelector('input[type="submit"]') ||
+                              document.querySelector('button.btn-primary');
 
                     if (uInput && pInput) {
-                        function setReactValue(element, val) {
-                            const lastVal = element.value;
-                            element.value = val;
-                            const event = new Event('input', { bubbles: true });
-                            const tracker = element._valueTracker;
-                            if (tracker) {
-                                tracker.setValue(lastVal);
-                            }
-                            element.dispatchEvent(event);
-                            element.dispatchEvent(new Event('change', { bubbles: true }));
-                        }
-
-                        // Điền Username & Password đồng bộ với React State
-                        uInput.focus();
                         setReactValue(uInput, '$user');
-
-                        pInput.focus();
                         setReactValue(pInput, '$pass');
 
                         // Tick chọn ô "Keep me logged in"
@@ -426,7 +489,40 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Hộp thoại cấu hình URL, Link đồ họa BMS, Username, Password và Chu kỳ Refresh
+     * Hộp thoại yêu cầu mã PIN Kỹ thuật viên trước khi vào Cài đặt
+     */
+    private fun promptAdminPinAndOpenSettings() {
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            hint = "Nhập mã PIN kỹ thuật viên (Mặc định: 123456)"
+            setPadding(40, 40, 40, 40)
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Xác thực Kỹ thuật viên")
+            .setMessage("Vui lòng nhập mã PIN bảo mật để truy cập cấu hình:")
+            .setView(input)
+            .setPositiveButton("Xác nhận") { _, _ ->
+                val enteredPin = input.text.toString().trim()
+                if (enteredPin == prefs.adminPin) {
+                    showAdminSettingsDialog()
+                } else {
+                    Toast.makeText(this, "Mã PIN không chính xác!", Toast.LENGTH_SHORT).show()
+                    applyKioskImmersiveMode()
+                }
+            }
+            .setNegativeButton("Hủy") { dialog, _ ->
+                dialog.dismiss()
+                applyKioskImmersiveMode()
+            }
+            .setOnDismissListener {
+                applyKioskImmersiveMode()
+            }
+            .show()
+    }
+
+    /**
+     * Hộp thoại cấu hình URL, Link đồ họa BMS, Username, Password, Chu kỳ Refresh và Cài đặt Android
      */
     private fun showAdminSettingsDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_settings, null)
@@ -435,6 +531,8 @@ class MainActivity : AppCompatActivity() {
         val etUsername = dialogView.findViewById<EditText>(R.id.etUsername)
         val etPassword = dialogView.findViewById<EditText>(R.id.etPassword)
         val etRefreshInterval = dialogView.findViewById<EditText>(R.id.etRefreshInterval)
+        val etAdminPin = dialogView.findViewById<EditText>(R.id.etAdminPin)
+        val btnOpenAndroidSettings = dialogView.findViewById<Button>(R.id.btnOpenAndroidSettings)
         val btnCancel = dialogView.findViewById<Button>(R.id.btnCancel)
         val btnSave = dialogView.findViewById<Button>(R.id.btnSave)
 
@@ -443,11 +541,18 @@ class MainActivity : AppCompatActivity() {
         etUsername.setText(prefs.username)
         etPassword.setText(prefs.password)
         etRefreshInterval.setText(prefs.refreshIntervalMinutes.toString())
+        etAdminPin.setText(prefs.adminPin)
 
         val dialog = AlertDialog.Builder(this)
             .setView(dialogView)
             .setCancelable(true)
             .create()
+
+        // Nút mở trực tiếp Cài đặt Android để kỹ thuật viên cấu hình IP LAN RJ45 hoặc Wifi trên P10R
+        btnOpenAndroidSettings.setOnClickListener {
+            dialog.dismiss()
+            openAndroidSystemSettings()
+        }
 
         btnCancel.setOnClickListener {
             dialog.dismiss()
@@ -460,12 +565,14 @@ class MainActivity : AppCompatActivity() {
             val newUser = etUsername.text.toString().trim()
             val newPass = etPassword.text.toString().trim()
             val newInterval = etRefreshInterval.text.toString().trim().toIntOrNull() ?: 15
+            val newPin = etAdminPin.text.toString().trim()
 
             if (newServer.isNotEmpty()) prefs.serverUrl = newServer
             prefs.graphicUrl = newGraphic
             if (newUser.isNotEmpty()) prefs.username = newUser
             if (newPass.isNotEmpty()) prefs.password = newPass
             prefs.refreshIntervalMinutes = newInterval
+            if (newPin.isNotEmpty()) prefs.adminPin = newPin
 
             dialog.dismiss()
             applyKioskImmersiveMode()
@@ -481,14 +588,34 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
+     * Mở Cài đặt Hệ thống Android để kỹ thuật viên cấu hình IP tĩnh mạng LAN RJ45 hoặc Wifi
+     */
+    private fun openAndroidSystemSettings() {
+        try {
+            val intent = Intent(Settings.ACTION_SETTINGS).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+        } catch (_: Exception) {
+            try {
+                val wirelessIntent = Intent(Settings.ACTION_WIRELESS_SETTINGS).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                startActivity(wirelessIntent)
+            } catch (e2: Exception) {
+                Toast.makeText(this, "Không thể mở Cài đặt Android", Toast.LENGTH_SHORT).show()
+                applyKioskImmersiveMode()
+            }
+        }
+    }
+
+    /**
      * Tự động phát hiện và kích hoạt chế độ Fullscreen đồ họa BMS bằng MutationObserver
-     * Hoạt động đáp ứng (responsive) trên mọi kích thước màn hình mà không dùng toạ độ cố định
      */
     private fun triggerBmsGraphicFullscreen() {
         val fsScript = """
             (function() {
                 function tryClickFullscreen() {
-                    // 1. Tìm icon 4 mũi tên qua các class chuẩn của Sauter Vision Center
                     const icon = document.querySelector('.glyphicon-fullscreen') ||
                                  document.querySelector('[class*="glyphicon-fullscreen"]') ||
                                  document.querySelector('.fa-expand') ||
@@ -502,12 +629,13 @@ class MainActivity : AppCompatActivity() {
                         return true;
                     }
 
-                    // 2. Kiểm tra bên trong iframe (nếu đồ họa BMS được render qua iframe)
                     const iframes = document.querySelectorAll('iframe');
                     for (let i = 0; i < iframes.length; i++) {
                         try {
                             const innerDoc = iframes[i].contentDocument || iframes[i].contentWindow.document;
-                            const innerIcon = innerDoc.querySelector('.glyphicon-fullscreen, [class*="fullscreen" i]');
+                            const innerIcon = innerDoc.querySelector('.glyphicon-fullscreen') ||
+                                              innerDoc.querySelector('.fa-expand') ||
+                                              innerDoc.querySelector('[title*="Full" i]');
                             if (innerIcon) {
                                 const innerBtn = innerIcon.closest('a, button, span, div') || innerIcon;
                                 innerBtn.click();
@@ -518,7 +646,6 @@ class MainActivity : AppCompatActivity() {
                     return false;
                 }
 
-                // Kỹ thuật 1: MutationObserver - Lập tức click ngay mili-giây đầu tiên khi icon đồ họa xuất hiện trong DOM
                 if (!tryClickFullscreen()) {
                     const observer = new MutationObserver(function(mutations, obs) {
                         if (tryClickFullscreen()) {
@@ -531,7 +658,6 @@ class MainActivity : AppCompatActivity() {
                         subtree: true
                     });
 
-                    // Kỹ thuật 2: Polling dự phòng mỗi 500ms trong 10 giây đầu
                     let attempts = 0;
                     const timer = setInterval(function() {
                         attempts++;
@@ -545,11 +671,5 @@ class MainActivity : AppCompatActivity() {
         """.trimIndent()
 
         webView.evaluateJavascript(fsScript, null)
-    }
-
-    override fun onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack()
-        }
     }
 }

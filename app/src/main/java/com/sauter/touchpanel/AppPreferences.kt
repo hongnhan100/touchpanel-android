@@ -12,6 +12,7 @@ class AppPreferences(context: Context) {
         private const val KEY_USERNAME = "username"
         private const val KEY_PASSWORD = "password"
         private const val KEY_REFRESH_INTERVAL = "refresh_interval"
+        private const val KEY_ADMIN_PIN = "admin_pin"
 
         // 1. Link trang chủ / Đăng nhập của Sauter Vision Center
         const val DEFAULT_SERVER_URL = "https://demo.sauter.com.vn/VisionCenter"
@@ -25,6 +26,9 @@ class AppPreferences(context: Context) {
 
         // 4. Chu kỳ tự động làm mới phiên làm việc (phút) - Mặc định 15 phút
         const val DEFAULT_REFRESH_INTERVAL = 15
+
+        // 5. Mã PIN quản trị mở Cài đặt Kỹ thuật viên & Cài đặt Android (Mặc định: 123456)
+        const val DEFAULT_ADMIN_PIN = "123456"
     }
 
     var serverUrl: String
@@ -46,4 +50,8 @@ class AppPreferences(context: Context) {
     var refreshIntervalMinutes: Int
         get() = prefs.getInt(KEY_REFRESH_INTERVAL, DEFAULT_REFRESH_INTERVAL)
         set(value) = prefs.edit().putInt(KEY_REFRESH_INTERVAL, value).apply()
+
+    var adminPin: String
+        get() = prefs.getString(KEY_ADMIN_PIN, DEFAULT_ADMIN_PIN) ?: DEFAULT_ADMIN_PIN
+        set(value) = prefs.edit().putString(KEY_ADMIN_PIN, value.trim()).apply()
 }

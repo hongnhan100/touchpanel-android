@@ -129,11 +129,44 @@
             android:textSize="14sp"
             android:inputType="number" />
 
+        <!-- Cấu hình Mã PIN Kỹ thuật viên (Admin PIN) -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="Mã PIN Kỹ thuật viên (Bảo vệ Cài đặt &amp; Thoát Kiosk):"
+            android:textColor="@color/white"
+            android:textSize="14sp" />
+
+        <EditText
+            android:id="@+id/etAdminPin"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="6dp"
+            android:background="#2A2A2A"
+            android:hint="123456"
+            android:textColorHint="@color/gray"
+            android:textColor="@color/white"
+            android:padding="10dp"
+            android:textSize="14sp"
+            android:inputType="numberPassword" />
+
+        <!-- Lối thoát khẩn cấp mở Cài đặt Hệ thống Android (dành cho Kỹ thuật viên cài IP LAN/Wifi) -->
+        <Button
+            android:id="@+id/btnOpenAndroidSettings"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:layout_marginTop="20dp"
+            android:backgroundTint="#D9534F"
+            android:text="⚙ MỞ CÀI ĐẶT ANDROID (CẤU HÌNH IP LAN RJ45 / WIFI)"
+            android:textColor="@color/white"
+            android:textStyle="bold" />
+
         <!-- Nút lưu và đóng -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="20dp"
             android:gravity="end"
             android:orientation="horizontal">
 
