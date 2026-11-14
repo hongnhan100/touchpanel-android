@@ -293,11 +293,6 @@ class MainActivity : AppCompatActivity() {
             webView.loadUrl(loginUrl)
         }
     }
-            isLoginInjected = false
-            isRedirectedToGraphic = false
-            webView.loadUrl(loginUrl)
-        }
-    }
 
     /**
      * Kiểm tra nội dung trang có chứa chữ Unauthorized hay không (bắt trường hợp server trả mã 200 nhưng nội dung là Unauthorized)
