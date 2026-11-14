@@ -5,4 +5,13 @@
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
     <color name="gray">#888888</color>
+
+    <!-- Màu sắc bàn phím số Keypad Kiosk TLC -->
+    <color name="keypad_bg">#151D2A</color>
+    <color name="keypad_box_bg">#0E1622</color>
+    <color name="keypad_btn_bg">#2A384C</color>
+    <color name="keypad_cyan">#26C6DA</color>
+    <color name="keypad_text_muted">#8E9CAE</color>
+    <color name="keypad_btn_cancel">#4F5D73</color>
+    <color name="keypad_btn_confirm">#0089C6</color>
 </resources>

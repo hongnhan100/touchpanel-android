@@ -5,6 +5,7 @@ import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
@@ -247,6 +248,7 @@ class MainActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
+                injectCookieDismissObserver()
                 if (url?.contains("Account/Login", ignoreCase = true) == true) {
                     isLoginInjected = false
                     statusText.text = getString(R.string.authenticating)
@@ -256,6 +258,7 @@ class MainActivity : AppCompatActivity() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 cookieManager.flush()
+                injectCookieDismissObserver()
 
                 if (url == null) return
 
@@ -389,6 +392,56 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
+     * Tự động triệt tiêu popup Cookie Consent bằng MutationObserver liên tục
+     * Đảm bảo form đăng nhập không bao giờ bị popup che khuất
+     */
+    private fun injectCookieDismissObserver() {
+        val cookieScript = """
+            (function() {
+                function purgeCookiePopup() {
+                    // 1. Click mọi button OK / Accept / I Agree / Đồng ý
+                    const allButtons = Array.from(document.querySelectorAll('button, a, input[type="button"]'));
+                    for (let btn of allButtons) {
+                        const t = (btn.innerText || btn.textContent || '').trim().toUpperCase();
+                        if (t === 'OK' || t === 'ACCEPT' || t === 'I AGREE' || t.includes('ĐỒNG Ý')) {
+                            btn.click();
+                        }
+                    }
+                    // 2. Tìm khối modal chứa chữ "cookies" và click button bên trong hoặc ẩn đi
+                    const allDivs = document.querySelectorAll('div');
+                    for (let d of allDivs) {
+                        const txt = (d.innerText || d.textContent || '').toLowerCase();
+                        if (txt.includes('essential cookies') || txt.includes('cookie preferences') || txt.includes('normal usage of the application')) {
+                            const b = d.querySelector('button');
+                            if (b) b.click();
+                            d.style.display = 'none';
+                        }
+                    }
+                    // 3. Ẩn backdrop làm mờ nền
+                    document.querySelectorAll('.modal-backdrop, [class*="backdrop" i]').forEach(el => {
+                        el.style.display = 'none';
+                    });
+                }
+
+                purgeCookiePopup();
+                setTimeout(purgeCookiePopup, 300);
+                setTimeout(purgeCookiePopup, 800);
+                setTimeout(purgeCookiePopup, 1500);
+
+                if (!window._cookieObserverInstalled) {
+                    window._cookieObserverInstalled = true;
+                    const observer = new MutationObserver(function() {
+                        purgeCookiePopup();
+                    });
+                    observer.observe(document.documentElement, { childList: true, subtree: true });
+                }
+            })();
+        """.trimIndent()
+
+        webView.evaluateJavascript(cookieScript, null)
+    }
+
+    /**
      * Tự động điền tài khoản, mật khẩu và submit form đăng nhập React/Sauter
      */
     private fun injectAutoLoginScript() {
@@ -400,17 +453,6 @@ class MainActivity : AppCompatActivity() {
 
         val script = """
             (function() {
-                function dismissCookiePopup() {
-                    const buttons = Array.from(document.querySelectorAll('button, a'));
-                    for (let btn of buttons) {
-                        const t = btn.innerText.toLowerCase();
-                        if (t.includes('accept') || t.includes('đồng ý') || t.includes('ok') || t.includes('i agree')) {
-                            btn.click();
-                            break;
-                        }
-                    }
-                }
-
                 function setReactValue(input, value) {
                     if (!input) return;
                     input.focus();
@@ -438,7 +480,7 @@ class MainActivity : AppCompatActivity() {
                               document.querySelector('input[type="submit"]') ||
                               document.querySelector('button.btn-primary');
 
-                    if (uInput && pInput) {
+                    if (uInput && pInput && '$pass'.length > 0) {
                         setReactValue(uInput, '$user');
                         setReactValue(pInput, '$pass');
 
@@ -462,8 +504,6 @@ class MainActivity : AppCompatActivity() {
                     return false;
                 }
 
-                dismissCookiePopup();
-                setTimeout(dismissCookiePopup, 300);
                 setTimeout(tryLogin, 600);
                 setTimeout(tryLogin, 1200);
                 setTimeout(tryLogin, 2500);
@@ -489,36 +529,90 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Hộp thoại yêu cầu mã PIN Kỹ thuật viên trước khi vào Cài đặt
+     * Hộp thoại bàn phím số Keypad cảm ứng chuyên dụng nhập mã PIN Kỹ thuật viên
+     * (Không cần bật bàn phím ảo của hệ thống Android, chống che khuất màn hình)
      */
     private fun promptAdminPinAndOpenSettings() {
-        val input = EditText(this).apply {
-            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
-            hint = "Nhập mã PIN bảo mật"
-            setPadding(40, 40, 40, 40)
-        }
+        val dialogView = layoutInflater.inflate(R.layout.dialog_pin_keypad, null)
+        val currentPin = StringBuilder()
 
-        AlertDialog.Builder(this)
-            .setTitle("Xác thực Kỹ thuật viên")
-            .setMessage("Vui lòng nhập mã PIN bảo mật để truy cập cấu hình:")
-            .setView(input)
-            .setPositiveButton("Xác nhận") { _, _ ->
-                val enteredPin = input.text.toString().trim()
-                if (enteredPin == prefs.adminPin) {
-                    showAdminSettingsDialog()
+        val dots = arrayOf(
+            dialogView.findViewById<TextView>(R.id.pinDot1),
+            dialogView.findViewById<TextView>(R.id.pinDot2),
+            dialogView.findViewById<TextView>(R.id.pinDot3),
+            dialogView.findViewById<TextView>(R.id.pinDot4),
+            dialogView.findViewById<TextView>(R.id.pinDot5),
+            dialogView.findViewById<TextView>(R.id.pinDot6)
+        )
+
+        fun updateDots() {
+            for (i in 0 until 6) {
+                if (i < currentPin.length) {
+                    dots[i].text = "●"
+                    dots[i].setTextColor(Color.WHITE)
                 } else {
-                    Toast.makeText(this, "Mã PIN không chính xác!", Toast.LENGTH_SHORT).show()
-                    applyKioskImmersiveMode()
+                    dots[i].text = "○"
+                    dots[i].setTextColor(Color.parseColor("#8E9CAE"))
                 }
             }
-            .setNegativeButton("Hủy") { dialog, _ ->
+        }
+
+        val dialog = AlertDialog.Builder(this)
+            .setView(dialogView)
+            .setCancelable(true)
+            .create()
+
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+
+        val numButtons = mapOf(
+            R.id.btnKey0 to "0", R.id.btnKey1 to "1", R.id.btnKey2 to "2",
+            R.id.btnKey3 to "3", R.id.btnKey4 to "4", R.id.btnKey5 to "5",
+            R.id.btnKey6 to "6", R.id.btnKey7 to "7", R.id.btnKey8 to "8",
+            R.id.btnKey9 to "9"
+        )
+        for ((btnId, num) in numButtons) {
+            dialogView.findViewById<Button>(btnId)?.setOnClickListener {
+                if (currentPin.length < 6) {
+                    currentPin.append(num)
+                    updateDots()
+                }
+            }
+        }
+
+        dialogView.findViewById<Button>(R.id.btnKeyBackspace)?.setOnClickListener {
+            if (currentPin.isNotEmpty()) {
+                currentPin.deleteCharAt(currentPin.length - 1)
+                updateDots()
+            }
+        }
+
+        dialogView.findViewById<Button>(R.id.btnKeyClear)?.setOnClickListener {
+            currentPin.clear()
+            updateDots()
+        }
+
+        dialogView.findViewById<Button>(R.id.btnKeypadCancel)?.setOnClickListener {
+            dialog.dismiss()
+            applyKioskImmersiveMode()
+        }
+
+        dialogView.findViewById<Button>(R.id.btnKeypadConfirm)?.setOnClickListener {
+            val enteredPin = currentPin.toString()
+            if (enteredPin == prefs.adminPin) {
                 dialog.dismiss()
-                applyKioskImmersiveMode()
+                showAdminSettingsDialog()
+            } else {
+                Toast.makeText(this, "Mã PIN không chính xác!", Toast.LENGTH_SHORT).show()
+                currentPin.clear()
+                updateDots()
             }
-            .setOnDismissListener {
-                applyKioskImmersiveMode()
-            }
-            .show()
+        }
+
+        dialog.setOnDismissListener {
+            applyKioskImmersiveMode()
+        }
+
+        dialog.show()
     }
 
     /**
