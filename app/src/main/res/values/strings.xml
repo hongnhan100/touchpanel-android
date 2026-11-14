@@ -1,13 +1,13 @@
 <resources>
-    <string name="app_name">Sauter Touchpanel</string>
-    <string name="default_url">https://demo.sauter.com.vn/VisionCenter</string>
-    <string name="default_graphic_url"></string>
+    <string name="app_name">TLC Panel</string>
+    <string name="default_url">http://0.nolab.vn:32003/visioncenter</string>
+    <string name="default_graphic_url">http://0.nolab.vn:32003/VisionCenter/Building/Images/7</string>
     <string name="default_user">Administrator</string>
     <string name="default_pass"></string>
-    <string name="connecting">Đang kết nối hệ thống Sauter Vision Center...</string>
+    <string name="connecting">Đang kết nối hệ thống BMS...</string>
     <string name="authenticating">Đang tự động xác thực phiên đăng nhập...</string>
     <string name="connection_error">Không thể kết nối đến máy chủ BMS. Đang thử lại trong vài giây...</string>
-    <string name="settings_title">Cấu hình Thiết bị Sauter Touchpanel</string>
+    <string name="settings_title">Cấu hình Thiết bị TLC Panel</string>
     <string name="save">Lưu cấu hình</string>
     <string name="cancel">Hủy</string>
     <string name="server_url">Đường dẫn Vision Center URL:</string>

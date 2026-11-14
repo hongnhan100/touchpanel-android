@@ -21,10 +21,17 @@
         android:background="@color/sauter_dark"
         android:visibility="gone">
 
+        <ImageView
+            android:layout_width="100dp"
+            android:layout_height="100dp"
+            android:src="@drawable/ic_launcher"
+            android:contentDescription="TLC Logo"
+            android:layout_marginBottom="16dp" />
+
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="SAUTER TOUCHPANEL"
+            android:text="TLC PANEL"
             android:textColor="@color/sauter_blue"
             android:textSize="32sp"
             android:textStyle="bold"

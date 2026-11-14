@@ -494,7 +494,7 @@ class MainActivity : AppCompatActivity() {
     private fun promptAdminPinAndOpenSettings() {
         val input = EditText(this).apply {
             inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
-            hint = "Nhập mã PIN kỹ thuật viên (Mặc định: 123456)"
+            hint = "Nhập mã PIN bảo mật"
             setPadding(40, 40, 40, 40)
         }
 

@@ -25,12 +25,12 @@ jobs:
     - name: Cấp quyền chạy gradlew
       run: chmod +x gradlew
 
-    - name: Build Debug APK
+    - name: Build APK
       run: ./gradlew assembleDebug --stacktrace
 
     - name: Upload APK Artifact để tải về
       uses: actions/upload-artifact@v4
       with:
-        name: Sauter-Touchpanel-Debug-APK
-        path: app/build/outputs/apk/debug/app-debug.apk
+        name: TLC-Panel-APK
+        path: app/build/outputs/apk/debug/*.apk
         retention-days: 14

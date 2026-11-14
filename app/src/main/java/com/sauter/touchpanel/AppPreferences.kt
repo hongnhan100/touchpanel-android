@@ -15,10 +15,10 @@ class AppPreferences(context: Context) {
         private const val KEY_ADMIN_PIN = "admin_pin"
 
         // 1. Link trang chủ / Đăng nhập của Sauter Vision Center
-        const val DEFAULT_SERVER_URL = "https://demo.sauter.com.vn/VisionCenter"
+        const val DEFAULT_SERVER_URL = "http://0.nolab.vn:32003/visioncenter"
 
-        // 2. Link ĐỒ HỌA BMS (GRAPHIC): Điền link sơ đồ BMS bạn muốn vào thẳng sau khi login ở đây
-        const val DEFAULT_GRAPHIC_URL = ""
+        // 2. Link ĐỒ HỌA BMS (GRAPHIC): Vào thẳng sơ đồ đồ họa sau khi login
+        const val DEFAULT_GRAPHIC_URL = "http://0.nolab.vn:32003/VisionCenter/Building/Images/7"
 
         // 3. Tài khoản và Mật khẩu tự động đăng nhập
         const val DEFAULT_USERNAME = "Administrator"
