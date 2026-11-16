@@ -2,6 +2,7 @@ package com.sauter.touchpanel
 
 import android.annotation.SuppressLint
 import android.app.AlertDialog
+import android.content.ComponentCallbacks2
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -11,12 +12,14 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.net.http.SslError
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.text.InputType
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.webkit.*
 import android.widget.Button
@@ -94,10 +97,28 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        handler.removeCallbacks(periodicRefreshRunnable)
+        handler.removeCallbacksAndMessages(null)
         try {
             networkCallback?.let { connectivityManager?.unregisterNetworkCallback(it) }
         } catch (_: Exception) {}
+
+        try {
+            webView.stopLoading()
+            webView.loadUrl("about:blank")
+            webView.clearHistory()
+            (webView.parent as? ViewGroup)?.removeView(webView)
+            webView.removeAllViews()
+            webView.destroy()
+        } catch (_: Exception) {}
+    }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+            try {
+                webView.clearCache(false)
+            } catch (_: Exception) {}
+        }
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -248,22 +269,24 @@ class MainActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
-                injectCookieDismissObserver()
-                if (url?.contains("Account/Login", ignoreCase = true) == true) {
+                if (url?.contains("Account/Login", ignoreCase = true) == true ||
+                    url?.contains("login", ignoreCase = true) == true
+                ) {
                     isLoginInjected = false
                     statusText.text = getString(R.string.authenticating)
+                    injectCookieDismissObserver()
                 }
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 cookieManager.flush()
-                injectCookieDismissObserver()
 
                 if (url == null) return
 
                 // TRƯỜNG HỢP 1: Đang ở trang Đăng nhập -> Tự động điền & Submit (Hiển thị trực tiếp cho người dùng thấy)
                 if (url.contains("Account/Login", ignoreCase = true) || url.contains("login", ignoreCase = true)) {
+                    injectCookieDismissObserver()
                     loadingOverlay.visibility = View.GONE
                     webView.visibility = View.VISIBLE
                     injectAutoLoginScript()
@@ -271,6 +294,7 @@ class MainActivity : AppCompatActivity() {
                 // TRƯỜNG HỢP 2: Đã vào trong hệ thống (Đăng nhập thành công)
                 else {
                     isReLoggingIn = false
+                    disconnectCookieObserver()
 
                     // Kiểm tra xem trang có bị lỗi "Unauthorized" hay không
                     checkAndRecoverFromUnauthorized()
@@ -289,6 +313,9 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
 
+                    // Dọn dẹp history stack để không tích tụ RAM sau nhiều lần chuyển trang/re-login
+                    webView.clearHistory()
+
                     // Hiển thị giao diện chính, ẩn màn hình loading
                     loadingOverlay.visibility = View.GONE
                     webView.visibility = View.VISIBLE
@@ -299,6 +326,16 @@ class MainActivity : AppCompatActivity() {
                         triggerBmsGraphicFullscreen()
                     }, 1200)
                 }
+            }
+
+            override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean {
+                // Tự phục hồi nếu Chromium Renderer bị hệ thống Android thu hồi RAM sau thời gian dài chạy 24/7
+                handler.post {
+                    try {
+                        recreate()
+                    } catch (_: Exception) {}
+                }
+                return true
             }
 
             override fun onReceivedError(view: WebView?, errorCode: Int, description: String?, failingUrl: String?) {
@@ -357,6 +394,7 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * Tự động đăng nhập lại khi hết phiên (Session Timeout / Unauthorized)
+     * Dọn cache RAM & history trước khi nạp lại để tránh đầy bộ nhớ khi chạy 24/7
      */
     private fun triggerSilentReLogin(reason: String) {
         if (isReLoggingIn) return
@@ -366,6 +404,8 @@ class MainActivity : AppCompatActivity() {
             val loginUrl = prefs.serverUrl.trim()
             isLoginInjected = false
             isRedirectedToGraphic = false
+            webView.clearHistory()
+            webView.clearCache(false)
             webView.loadUrl(loginUrl)
         }
     }
@@ -391,49 +431,71 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun disconnectCookieObserver() {
+        webView.evaluateJavascript(
+            "(function(){ if(window._cookieObserver){ window._cookieObserver.disconnect(); window._cookieObserver = null; } window._cookieObserverInstalled = false; })();",
+            null
+        )
+    }
+
     /**
-     * Tự động triệt tiêu popup Cookie Consent bằng MutationObserver liên tục
-     * Đảm bảo form đăng nhập không bao giờ bị popup che khuất
+     * Tự động triệt tiêu popup Cookie Consent bằng MutationObserver có giới hạn thời gian
+     * Chỉ chạy trên trang Login và tự ngắt sau tối đa 10 giây hoặc ngay khi đã xử lý xong popup
      */
     private fun injectCookieDismissObserver() {
         val cookieScript = """
             (function() {
                 function purgeCookiePopup() {
+                    let dismissed = false;
                     // 1. Click mọi button OK / Accept / I Agree / Đồng ý
                     const allButtons = Array.from(document.querySelectorAll('button, a, input[type="button"]'));
                     for (let btn of allButtons) {
                         const t = (btn.innerText || btn.textContent || '').trim().toUpperCase();
                         if (t === 'OK' || t === 'ACCEPT' || t === 'I AGREE' || t.includes('ĐỒNG Ý')) {
                             btn.click();
+                            dismissed = true;
                         }
                     }
-                    // 2. Tìm khối modal chứa chữ "cookies" và click button bên trong hoặc ẩn đi
-                    const allDivs = document.querySelectorAll('div');
-                    for (let d of allDivs) {
+                    // 2. Chỉ kiểm tra các phần tử dạng modal/dialog/cookie thay vì quét toàn bộ div
+                    const candidates = document.querySelectorAll('.modal, [role="dialog"], [class*="cookie" i], [id*="cookie" i]');
+                    for (let d of candidates) {
                         const txt = (d.innerText || d.textContent || '').toLowerCase();
                         if (txt.includes('essential cookies') || txt.includes('cookie preferences') || txt.includes('normal usage of the application')) {
                             const b = d.querySelector('button');
                             if (b) b.click();
                             d.style.display = 'none';
+                            dismissed = true;
                         }
                     }
                     // 3. Ẩn backdrop làm mờ nền
                     document.querySelectorAll('.modal-backdrop, [class*="backdrop" i]').forEach(el => {
                         el.style.display = 'none';
                     });
+                    return dismissed;
                 }
 
-                purgeCookiePopup();
-                setTimeout(purgeCookiePopup, 300);
-                setTimeout(purgeCookiePopup, 800);
-                setTimeout(purgeCookiePopup, 1500);
+                if (purgeCookiePopup()) return;
 
                 if (!window._cookieObserverInstalled) {
                     window._cookieObserverInstalled = true;
                     const observer = new MutationObserver(function() {
-                        purgeCookiePopup();
+                        if (purgeCookiePopup()) {
+                            observer.disconnect();
+                            window._cookieObserver = null;
+                            window._cookieObserverInstalled = false;
+                        }
                     });
+                    window._cookieObserver = observer;
                     observer.observe(document.documentElement, { childList: true, subtree: true });
+
+                    // Giới hạn an toàn: tự động ngắt observer sau 10 giây để không tốn RAM/CPU
+                    setTimeout(function() {
+                        if (window._cookieObserver) {
+                            window._cookieObserver.disconnect();
+                            window._cookieObserver = null;
+                            window._cookieObserverInstalled = false;
+                        }
+                    }, 10000);
                 }
             })();
         """.trimIndent()

@@ -1,322 +1,327 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="380dp"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:background="@drawable/bg_keypad_dialog"
-    android:gravity="center_horizontal"
-    android:orientation="vertical"
-    android:padding="24dp">
+    android:scrollbars="none">
 
-    <!-- Logo TLC -->
-    <ImageView
-        android:id="@+id/ivKeypadLogo"
-        android:layout_width="56dp"
-        android:layout_height="56dp"
-        android:src="@drawable/ic_launcher"
-        android:contentDescription="TLC Logo" />
-
-    <!-- Tiêu đề có icon khóa -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="🔒 XÁC THỰC KỸ THUẬT VIÊN"
-        android:textColor="@color/keypad_cyan"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:letterSpacing="0.05" />
-
-    <!-- Phụ đề -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:text="Nhập mã Admin PIN để truy cập Menu quản trị"
-        android:textColor="@color/keypad_text_muted"
-        android:textSize="12sp" />
-
-    <!-- Hộp hiển thị 6 ký tự PIN (Dạng vòng tròn ○ hoặc chấm đặc ●) -->
     <LinearLayout
-        android:id="@+id/boxPinDots"
-        android:layout_width="match_parent"
-        android:layout_height="52dp"
-        android:layout_marginTop="18dp"
-        android:background="@drawable/bg_keypad_box"
-        android:gravity="center"
-        android:orientation="horizontal">
-
-        <TextView
-            android:id="@+id/pinDot1"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="○"
-            android:textColor="@color/white"
-            android:textSize="26sp"
-            android:layout_marginHorizontal="8dp" />
-
-        <TextView
-            android:id="@+id/pinDot2"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="○"
-            android:textColor="@color/white"
-            android:textSize="26sp"
-            android:layout_marginHorizontal="8dp" />
-
-        <TextView
-            android:id="@+id/pinDot3"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="○"
-            android:textColor="@color/white"
-            android:textSize="26sp"
-            android:layout_marginHorizontal="8dp" />
-
-        <TextView
-            android:id="@+id/pinDot4"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="○"
-            android:textColor="@color/white"
-            android:textSize="26sp"
-            android:layout_marginHorizontal="8dp" />
-
-        <TextView
-            android:id="@+id/pinDot5"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="○"
-            android:textColor="@color/white"
-            android:textSize="26sp"
-            android:layout_marginHorizontal="8dp" />
-
-        <TextView
-            android:id="@+id/pinDot6"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="○"
-            android:textColor="@color/white"
-            android:textSize="26sp"
-            android:layout_marginHorizontal="8dp" />
-
-    </LinearLayout>
-
-    <!-- Bàn phím số Grid 3x4 (Tối ưu cảm ứng không cần soft keyboard) -->
-    <LinearLayout
-        android:layout_width="match_parent"
+        android:layout_width="350dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:orientation="vertical">
+        android:background="@drawable/bg_keypad_dialog"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:padding="16dp">
 
-        <!-- Hàng 1: 1, 2, 3 -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="54dp"
-            android:orientation="horizontal"
-            android:weightSum="3">
+        <!-- Logo TLC -->
+        <ImageView
+            android:id="@+id/ivKeypadLogo"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_launcher"
+            android:contentDescription="TLC Logo" />
 
-            <Button
-                android:id="@+id/btnKey1"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:background="@drawable/bg_keypad_button"
-                android:text="1"
-                android:textColor="@color/white"
-                android:textSize="22sp"
-                android:textStyle="bold" />
-
-            <Button
-                android:id="@+id/btnKey2"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:background="@drawable/bg_keypad_button"
-                android:text="2"
-                android:textColor="@color/white"
-                android:textSize="22sp"
-                android:textStyle="bold" />
-
-            <Button
-                android:id="@+id/btnKey3"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:background="@drawable/bg_keypad_button"
-                android:text="3"
-                android:textColor="@color/white"
-                android:textSize="22sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-        <!-- Hàng 2: 4, 5, 6 -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="54dp"
-            android:layout_marginTop="2dp"
-            android:orientation="horizontal"
-            android:weightSum="3">
-
-            <Button
-                android:id="@+id/btnKey4"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:background="@drawable/bg_keypad_button"
-                android:text="4"
-                android:textColor="@color/white"
-                android:textSize="22sp"
-                android:textStyle="bold" />
-
-            <Button
-                android:id="@+id/btnKey5"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:background="@drawable/bg_keypad_button"
-                android:text="5"
-                android:textColor="@color/white"
-                android:textSize="22sp"
-                android:textStyle="bold" />
-
-            <Button
-                android:id="@+id/btnKey6"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:background="@drawable/bg_keypad_button"
-                android:text="6"
-                android:textColor="@color/white"
-                android:textSize="22sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-        <!-- Hàng 3: 7, 8, 9 -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="54dp"
-            android:layout_marginTop="2dp"
-            android:orientation="horizontal"
-            android:weightSum="3">
-
-            <Button
-                android:id="@+id/btnKey7"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:background="@drawable/bg_keypad_button"
-                android:text="7"
-                android:textColor="@color/white"
-                android:textSize="22sp"
-                android:textStyle="bold" />
-
-            <Button
-                android:id="@+id/btnKey8"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:background="@drawable/bg_keypad_button"
-                android:text="8"
-                android:textColor="@color/white"
-                android:textSize="22sp"
-                android:textStyle="bold" />
-
-            <Button
-                android:id="@+id/btnKey9"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:background="@drawable/bg_keypad_button"
-                android:text="9"
-                android:textColor="@color/white"
-                android:textSize="22sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-        <!-- Hàng 4: Backspace (⌫), 0, Clear (C) -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="54dp"
-            android:layout_marginTop="2dp"
-            android:orientation="horizontal"
-            android:weightSum="3">
-
-            <Button
-                android:id="@+id/btnKeyBackspace"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:background="@drawable/bg_keypad_button"
-                android:text="⌫"
-                android:textColor="@color/white"
-                android:textSize="20sp" />
-
-            <Button
-                android:id="@+id/btnKey0"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:background="@drawable/bg_keypad_button"
-                android:text="0"
-                android:textColor="@color/white"
-                android:textSize="22sp"
-                android:textStyle="bold" />
-
-            <Button
-                android:id="@+id/btnKeyClear"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:layout_margin="4dp"
-                android:background="@drawable/bg_keypad_button"
-                android:text="C"
-                android:textColor="@color/white"
-                android:textSize="20sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-    </LinearLayout>
-
-    <!-- Nút điều khiển: Hủy bỏ & Xác nhận -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_marginTop="16dp"
-        android:orientation="horizontal"
-        android:weightSum="2">
-
-        <Button
-            android:id="@+id/btnKeypadCancel"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:layout_marginEnd="6dp"
-            android:background="@drawable/bg_keypad_cancel"
-            android:text="Hủy bỏ"
-            android:textColor="@color/white"
-            android:textSize="15sp" />
-
-        <Button
-            android:id="@+id/btnKeypadConfirm"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:layout_marginStart="6dp"
-            android:background="@drawable/bg_keypad_confirm"
-            android:text="Xác nhận"
-            android:textColor="@color/white"
+        <!-- Tiêu đề có icon khóa -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="🔒 XÁC THỰC KỸ THUẬT VIÊN"
+            android:textColor="@color/keypad_cyan"
             android:textSize="15sp"
-            android:textStyle="bold" />
-    </LinearLayout>
+            android:textStyle="bold"
+            android:letterSpacing="0.04" />
 
-</LinearLayout>
+        <!-- Phụ đề -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="Nhập mã Admin PIN để truy cập Menu quản trị"
+            android:textColor="@color/keypad_text_muted"
+            android:textSize="11sp" />
+
+        <!-- Hộp hiển thị 6 ký tự PIN (Dạng vòng tròn ○ hoặc chấm đặc ●) -->
+        <LinearLayout
+            android:id="@+id/boxPinDots"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_keypad_box"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/pinDot1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="○"
+                android:textColor="@color/white"
+                android:textSize="22sp"
+                android:layout_marginHorizontal="7dp" />
+
+            <TextView
+                android:id="@+id/pinDot2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="○"
+                android:textColor="@color/white"
+                android:textSize="22sp"
+                android:layout_marginHorizontal="7dp" />
+
+            <TextView
+                android:id="@+id/pinDot3"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="○"
+                android:textColor="@color/white"
+                android:textSize="22sp"
+                android:layout_marginHorizontal="7dp" />
+
+            <TextView
+                android:id="@+id/pinDot4"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="○"
+                android:textColor="@color/white"
+                android:textSize="22sp"
+                android:layout_marginHorizontal="7dp" />
+
+            <TextView
+                android:id="@+id/pinDot5"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="○"
+                android:textColor="@color/white"
+                android:textSize="22sp"
+                android:layout_marginHorizontal="7dp" />
+
+            <TextView
+                android:id="@+id/pinDot6"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="○"
+                android:textColor="@color/white"
+                android:textSize="22sp"
+                android:layout_marginHorizontal="7dp" />
+
+        </LinearLayout>
+
+        <!-- Bàn phím số Grid 3x4 (Tối ưu cảm ứng không cần soft keyboard) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="vertical">
+
+            <!-- Hàng 1: 1, 2, 3 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:orientation="horizontal"
+                android:weightSum="3">
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btnKey1"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_margin="3dp"
+                    android:background="@drawable/bg_keypad_button"
+                    android:text="1"
+                    android:textColor="@color/white"
+                    android:textSize="19sp"
+                    android:textStyle="bold" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btnKey2"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_margin="3dp"
+                    android:background="@drawable/bg_keypad_button"
+                    android:text="2"
+                    android:textColor="@color/white"
+                    android:textSize="19sp"
+                    android:textStyle="bold" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btnKey3"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_margin="3dp"
+                    android:background="@drawable/bg_keypad_button"
+                    android:text="3"
+                    android:textColor="@color/white"
+                    android:textSize="19sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Hàng 2: 4, 5, 6 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:orientation="horizontal"
+                android:weightSum="3">
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btnKey4"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_margin="3dp"
+                    android:background="@drawable/bg_keypad_button"
+                    android:text="4"
+                    android:textColor="@color/white"
+                    android:textSize="19sp"
+                    android:textStyle="bold" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btnKey5"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_margin="3dp"
+                    android:background="@drawable/bg_keypad_button"
+                    android:text="5"
+                    android:textColor="@color/white"
+                    android:textSize="19sp"
+                    android:textStyle="bold" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btnKey6"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_margin="3dp"
+                    android:background="@drawable/bg_keypad_button"
+                    android:text="6"
+                    android:textColor="@color/white"
+                    android:textSize="19sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Hàng 3: 7, 8, 9 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:orientation="horizontal"
+                android:weightSum="3">
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btnKey7"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_margin="3dp"
+                    android:background="@drawable/bg_keypad_button"
+                    android:text="7"
+                    android:textColor="@color/white"
+                    android:textSize="19sp"
+                    android:textStyle="bold" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btnKey8"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_margin="3dp"
+                    android:background="@drawable/bg_keypad_button"
+                    android:text="8"
+                    android:textColor="@color/white"
+                    android:textSize="19sp"
+                    android:textStyle="bold" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btnKey9"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_margin="3dp"
+                    android:background="@drawable/bg_keypad_button"
+                    android:text="9"
+                    android:textColor="@color/white"
+                    android:textSize="19sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Hàng 4: Backspace (⌫), 0, Clear (C) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:orientation="horizontal"
+                android:weightSum="3">
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btnKeyBackspace"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_margin="3dp"
+                    android:background="@drawable/bg_keypad_button"
+                    android:text="⌫"
+                    android:textColor="@color/white"
+                    android:textSize="18sp" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btnKey0"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_margin="3dp"
+                    android:background="@drawable/bg_keypad_button"
+                    android:text="0"
+                    android:textColor="@color/white"
+                    android:textSize="19sp"
+                    android:textStyle="bold" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btnKeyClear"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_margin="3dp"
+                    android:background="@drawable/bg_keypad_button"
+                    android:text="C"
+                    android:textColor="@color/white"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Nút điều khiển: Hủy bỏ & Xác nhận -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="42dp"
+            android:layout_marginTop="10dp"
+            android:orientation="horizontal"
+            android:weightSum="2">
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnKeypadCancel"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginEnd="5dp"
+                android:background="@drawable/bg_keypad_cancel"
+                android:text="Hủy bỏ"
+                android:textAllCaps="false"
+                android:textColor="@color/white"
+                android:textSize="14sp" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnKeypadConfirm"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginStart="5dp"
+                android:background="@drawable/bg_keypad_confirm"
+                android:text="Xác nhận"
+                android:textAllCaps="false"
+                android:textColor="@color/white"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>
