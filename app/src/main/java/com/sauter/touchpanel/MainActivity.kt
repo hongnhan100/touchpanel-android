@@ -54,10 +54,11 @@ class MainActivity : AppCompatActivity() {
     private var connectivityManager: ConnectivityManager? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
-    // Bộ hẹn giờ định kỳ làm mới phiên làm việc (mặc định 15 phút)
+    // Bộ hẹn giờ định kỳ giữ phiên làm việc ngầm (Silent Ping Keep-Alive, mặc định 15 phút)
+    // Không tải lại trang đồ họa để tránh nháy/gián đoạn màn hình; chỉ re-login khi server báo 401/403
     private val periodicRefreshRunnable = object : Runnable {
         override fun run() {
-            triggerSilentReLogin("Đến chu kỳ làm mới phiên (Session Keep-Alive)")
+            sendSilentKeepAlivePing()
             val intervalMs = (prefs.refreshIntervalMinutes.coerceAtLeast(5)) * 60 * 1000L
             handler.postDelayed(this, intervalMs)
         }
@@ -390,6 +391,56 @@ class MainActivity : AppCompatActivity() {
 
         val targetUrl = prefs.serverUrl.trim()
         webView.loadUrl(targetUrl)
+    }
+
+    /**
+     * Gửi request giữ phiên ngầm (Silent Ping Keep-Alive) mà không tải lại giao diện đồ họa.
+     * Nếu server trả 401/403 hoặc chuyển hướng về trang Login -> tự động gọi triggerSilentReLogin().
+     */
+    private fun sendSilentKeepAlivePing() {
+        val currentUrl = webView.url ?: return
+        if (currentUrl.contains("Account/Login", ignoreCase = true) ||
+            currentUrl.contains("login", ignoreCase = true) ||
+            errorLayout.visibility == View.VISIBLE ||
+            !isNetworkAvailable
+        ) {
+            return
+        }
+
+        val pingTarget = prefs.serverUrl.trim().replace("'", "\\'")
+        val pingScript = """
+            (function() {
+                try {
+                    fetch('$pingTarget', {
+                        method: 'HEAD',
+                        credentials: 'include',
+                        cache: 'no-store'
+                    }).then(function(res) {
+                        var redirectedToLogin = res.redirected && res.url && res.url.toLowerCase().indexOf('login') !== -1;
+                        if (res.status === 401 || res.status === 403 || redirectedToLogin) {
+                            window.__tlcSessionExpired = true;
+                        } else {
+                            window.__tlcSessionExpired = false;
+                        }
+                    }).catch(function() {});
+                } catch (e) {}
+            })();
+        """.trimIndent()
+
+        webView.evaluateJavascript(
+            "window.__tlcSessionExpired = false; $pingScript",
+            null
+        )
+        // Kiểm tra kết quả fetch sau 3 giây; chỉ re-login toàn trang nếu phiên thật sự hết hạn
+        handler.postDelayed({
+            webView.evaluateJavascript("window.__tlcSessionExpired === true ? 'EXPIRED' : 'ALIVE'") { result ->
+                if (result != null && result.contains("EXPIRED")) {
+                    triggerSilentReLogin("Silent Keep-Alive phát hiện phiên đã hết hạn (401/403 hoặc redirect Login)")
+                } else {
+                    CookieManager.getInstance().flush()
+                }
+            }
+        }, 3000)
     }
 
     /**
