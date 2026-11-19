@@ -44,6 +44,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnQuickSettings: Button
 
     private lateinit var prefs: AppPreferences
+    private lateinit var assetCacheManager: StaticAssetCacheManager
     private val handler = Handler(Looper.getMainLooper())
 
     private var isRedirectedToGraphic = false
@@ -67,6 +68,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prefs = AppPreferences(this)
+        assetCacheManager = StaticAssetCacheManager(this)
 
         // 1. Giữ màn hình luôn sáng 24/7 cho thiết bị Kiosk Touchpanel ONERugged P10R
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -224,6 +226,7 @@ class MainActivity : AppCompatActivity() {
         settings.displayZoomControls = false
         settings.setSupportZoom(false)
         settings.mediaPlaybackRequiresUserGesture = false
+        settings.cacheMode = WebSettings.LOAD_DEFAULT
 
         // User-Agent chuẩn desktop để hệ thống Vision Center hiển thị đầy đủ tính năng đồ họa
         settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 SauterTouchpanel/Android"
@@ -268,6 +271,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         webView.webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
+                return assetCacheManager.intercept(request) ?: super.shouldInterceptRequest(view, request)
+            }
+
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
                 if (url?.contains("Account/Login", ignoreCase = true) == true ||
@@ -739,6 +746,7 @@ class MainActivity : AppCompatActivity() {
         val etPassword = dialogView.findViewById<EditText>(R.id.etPassword)
         val etRefreshInterval = dialogView.findViewById<EditText>(R.id.etRefreshInterval)
         val etAdminPin = dialogView.findViewById<EditText>(R.id.etAdminPin)
+        val btnClearGraphicCache = dialogView.findViewById<Button>(R.id.btnClearGraphicCache)
         val btnOpenAndroidSettings = dialogView.findViewById<Button>(R.id.btnOpenAndroidSettings)
         val btnCancel = dialogView.findViewById<Button>(R.id.btnCancel)
         val btnSave = dialogView.findViewById<Button>(R.id.btnSave)
@@ -750,10 +758,22 @@ class MainActivity : AppCompatActivity() {
         etRefreshInterval.setText(prefs.refreshIntervalMinutes.toString())
         etAdminPin.setText(prefs.adminPin)
 
+        val sizeMb = String.format("%.1f MB", assetCacheManager.getCacheSizeMB())
+        btnClearGraphicCache.text = "🗑 XÓA CACHE ĐỒ HỌA ($sizeMb) & TẢI LẠI"
+
         val dialog = AlertDialog.Builder(this)
             .setView(dialogView)
             .setCancelable(true)
             .create()
+
+        btnClearGraphicCache.setOnClickListener {
+            val deleted = assetCacheManager.clearAll()
+            webView.clearCache(true)
+            dialog.dismiss()
+            applyKioskImmersiveMode()
+            Toast.makeText(this, "Đã xóa cache đồ họa ($deleted tệp), đang tải lại...", Toast.LENGTH_SHORT).show()
+            startLoading()
+        }
 
         // Nút mở trực tiếp Cài đặt Android để kỹ thuật viên cấu hình IP LAN RJ45 hoặc Wifi trên P10R
         btnOpenAndroidSettings.setOnClickListener {
